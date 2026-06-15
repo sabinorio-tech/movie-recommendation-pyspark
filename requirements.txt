@@ -1,0 +1,5 @@
+pyspark
+pandas
+streamlit
+requests
+python-dotenv

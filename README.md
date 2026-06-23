@@ -105,6 +105,36 @@ a placeholder image.
 To enable movie posters from TMDB, add `TMDB_API_KEY` to `.env` and restart the
 Streamlit app.
 
+## Running with Docker
+
+Make sure the MovieLens CSV files are available locally before building:
+
+```text
+data/raw/ml-latest/ratings.csv
+data/raw/ml-latest/movies.csv
+```
+
+Build the image from the project root:
+
+```bash
+docker build -t movie-recommendation-pyspark .
+```
+
+Run the app:
+
+```bash
+docker run --env-file .env -p 8501:8501 movie-recommendation-pyspark
+```
+
+Then open:
+
+```text
+http://localhost:8501
+```
+
+The `.env` file is not copied into the image. Pass it with `--env-file .env` if
+you want TMDB posters enabled.
+
 ## Project Structure
 
 ```text

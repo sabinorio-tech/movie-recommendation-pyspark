@@ -107,6 +107,30 @@ a placeholder image.
 To enable movie posters from TMDB, add `TMDB_API_KEY` to `.env` and restart the
 Streamlit app.
 
+## Deploying on Streamlit Community Cloud
+
+Deploy `app/streamlit_app.py` with Python 3.12 selected under **Advanced
+settings**. The root `packages.txt` installs the Java 17 runtime required by
+PySpark. Spark defaults to two local worker threads and a 512 MB driver heap so
+it can start within a small cloud container; override these with
+`SPARK_MASTER`, `SPARK_DRIVER_MEMORY`, `SPARK_EXECUTOR_MEMORY`, and
+`SPARK_SHUFFLE_PARTITIONS` when more resources are available.
+
+To enable posters, add this TOML entry under the app's **Settings > Secrets**:
+
+```toml
+TMDB_API_KEY = "your_tmdb_api_key_here"
+```
+
+The TMDB key is optional and is unrelated to Spark startup.
+
+The full MovieLens dataset is intentionally excluded from Git and is too large
+for the repository. When those files are absent, the app clearly enters demo
+mode and uses the tiny committed test fixture. For useful public
+recommendations, deploy a cloud-sized sample as `data/raw/ml-latest/ratings.csv`
+and `movies.csv`, or adapt the app to read preprocessed recommendations from
+external storage. A Docker deployment can use the full local dataset instead.
+
 ## Data Engineering Architecture
 
 - **PySpark** reads MovieLens CSVs and performs the filtering, joins,

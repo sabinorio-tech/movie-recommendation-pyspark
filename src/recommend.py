@@ -26,12 +26,21 @@ logger = logging.getLogger(__name__)
 
 def get_spark_session(
     app_name="MovieRecommendationSystem",
-    master="local[*]",
-    driver_memory="6g",
-    executor_memory="6g",
-    shuffle_partitions=8,
+    master=None,
+    driver_memory=None,
+    executor_memory=None,
+    shuffle_partitions=None,
 ):
     """Create or reuse a local Spark session for MovieLens processing."""
+    master = master or os.getenv("SPARK_MASTER", "local[2]")
+    driver_memory = driver_memory or os.getenv("SPARK_DRIVER_MEMORY", "512m")
+    executor_memory = executor_memory or os.getenv(
+        "SPARK_EXECUTOR_MEMORY", driver_memory
+    )
+    shuffle_partitions = shuffle_partitions or int(
+        os.getenv("SPARK_SHUFFLE_PARTITIONS", "4")
+    )
+
     return (
         SparkSession.builder.appName(app_name)
         .master(master)

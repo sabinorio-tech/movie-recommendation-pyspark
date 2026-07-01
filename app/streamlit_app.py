@@ -13,6 +13,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from src.recommend import (
+    DEFAULT_DATA_PATH,
     get_movie_poster,
     get_movie_titles,
     get_placeholder_poster_url,
@@ -28,10 +29,10 @@ def cached_spark():
 
 
 @st.cache_data
-def cached_movie_titles():
+def cached_movie_titles(data_path):
     """Return cached movie titles for the search dropdown."""
     spark = cached_spark()
-    return get_movie_titles(spark=spark)
+    return get_movie_titles(data_path=data_path, spark=spark)
 
 
 @st.cache_data(show_spinner=False)
@@ -141,11 +142,46 @@ st.write("Find movies liked by users with similar taste.")
 
 if not is_tmdb_configured():
     st.warning(
-        "TMDB API key not configured. Add TMDB_API_KEY to your .env file."
+        "TMDB API key not configured. Add TMDB_API_KEY to your local .env "
+        "file or to Streamlit Cloud secrets to enable posters."
     )
 
-spark = cached_spark()
-movie_titles = cached_movie_titles()
+production_data_files = [
+    DEFAULT_DATA_PATH / "ratings.csv",
+    DEFAULT_DATA_PATH / "movies.csv",
+]
+demo_data_path = ROOT_DIR / "tests" / "fixtures" / "ml-small"
+demo_data_files = [
+    demo_data_path / "ratings.csv",
+    demo_data_path / "movies.csv",
+]
+
+if all(path.is_file() for path in production_data_files):
+    active_data_path = DEFAULT_DATA_PATH
+elif all(path.is_file() for path in demo_data_files):
+    active_data_path = demo_data_path
+    st.info(
+        "Demo mode: using the small MovieLens fixture because the full dataset "
+        "is not included in this deployment."
+    )
+else:
+    st.error(
+        "MovieLens data is not available in this deployment. Add ratings.csv "
+        "and movies.csv under data/raw/ml-latest."
+    )
+    st.stop()
+
+try:
+    spark = cached_spark()
+except Exception as error:
+    st.error(
+        "Spark could not start. The deployment needs Java 17 and enough memory "
+        "for the configured Spark driver. Check the Streamlit Cloud build logs."
+    )
+    st.exception(error)
+    st.stop()
+
+movie_titles = cached_movie_titles(active_data_path)
 
 selected_movie = st.selectbox(
     "Choose a movie you like:",
@@ -165,6 +201,7 @@ if st.button("Recommend"):
             recommendations = recommend_similar_movies(
                 selected_movie,
                 top_n=top_n,
+                data_path=active_data_path,
                 spark=spark,
             )
 

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2026-07-01T09:13:07Z"
+  labels:
+    app: movie-recommender
+  name: movie-recommender
+  namespace: default
+  resourceVersion: "136699"
+  uid: 215e0f2a-5bd4-4b1e-910d-72f321b29103
+spec:
+  clusterIP: 10.106.28.86
+  clusterIPs:
+  - 10.106.28.86
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - nodePort: 31007
+    port: 8501
+    protocol: TCP
+    targetPort: 8501
+  selector:
+    app: movie-recommender
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}

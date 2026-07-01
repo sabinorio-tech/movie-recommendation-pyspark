@@ -10,12 +10,13 @@ from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, count, desc, lower, regexp_replace
 
+from src.download_data import DEFAULT_DATA_PATH
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
-DEFAULT_DATA_PATH = PROJECT_ROOT / "data" / "raw" / "ml-latest"
 TMDB_SEARCH_URL = "https://api.themoviedb.org/3/search/movie"
 TMDB_POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500"
 YEAR_PATTERN = re.compile(r"\((\d{4})\)\s*$")

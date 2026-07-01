@@ -38,27 +38,24 @@ Technologies used:
 ## Dataset
 
 The project uses the MovieLens Latest Dataset (`ml-latest`) from GroupLens.
-The local dataset included in `data/raw/ml-latest` contains:
+The dataset downloaded into `data/raw/ml-latest` contains:
 
-- 33,832,162 ratings.
-- 330,975 users.
+- 11,808,890 ratings.
+- 116,250 users.
 - 86,537 movies.
 
-The raw data is intentionally ignored by git because it is large. Download the
-dataset from GroupLens and place the extracted files in:
+The raw data is intentionally ignored by Git because it is large. On the first
+application run, the project automatically downloads the repository's
+`v1.0-data` GitHub Release asset, verifies its SHA-256 checksum, and extracts:
 
 ```text
 data/raw/ml-latest/
 ```
 
-Expected files include:
-
 - `ratings.csv`
 - `movies.csv`
-- `tags.csv`
-- `links.csv`
-- `genome-scores.csv`
-- `genome-tags.csv`
+
+Later runs reuse these files without downloading them again.
 
 Data source: GroupLens MovieLens datasets. If you use this project in a
 publication or portfolio write-up, credit GroupLens and cite the MovieLens
@@ -77,7 +74,12 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
+
+streamlit run app/streamlit_app.py
 ```
+
+No manual dataset setup is required. The first run downloads and extracts the
+required MovieLens files automatically.
 
 ## Environment Variables
 
@@ -124,12 +126,10 @@ TMDB_API_KEY = "your_tmdb_api_key_here"
 
 The TMDB key is optional and is unrelated to Spark startup.
 
-The full MovieLens dataset is intentionally excluded from Git and is too large
-for the repository. When those files are absent, the app clearly enters demo
-mode and uses the tiny committed test fixture. For useful public
-recommendations, deploy a cloud-sized sample as `data/raw/ml-latest/ratings.csv`
-and `movies.csv`, or adapt the app to read preprocessed recommendations from
-external storage. A Docker deployment can use the full local dataset instead.
+The MovieLens files are downloaded automatically from the `v1.0-data` GitHub
+Release when a fresh Community Cloud instance starts. The files are cached on
+that instance for later app reruns. If the instance is replaced or its storage
+is cleared, the same startup check downloads them again.
 
 ## Data Engineering Architecture
 
@@ -140,8 +140,8 @@ external storage. A Docker deployment can use the full local dataset instead.
   run metadata; it does not replace Spark.
 - **Streamlit** provides the interactive user interface and continues to
   calculate recommendations on demand exactly as before.
-- **Docker** packages the Streamlit application, Python dependencies, Java, and
-  locally available required MovieLens files into a runnable image.
+- **Docker** packages the Streamlit application, Python dependencies, and Java;
+  the application obtains the MovieLens files automatically when needed.
 - **GitHub Actions** validates Python syntax and required files, runs unit tests,
   and executes the real Spark pipeline against a tiny committed fixture. A
   Docker build can be requested manually from the workflow UI.
@@ -200,13 +200,6 @@ python -m src.pipeline run \
 
 ## Running with Docker
 
-Make sure the MovieLens CSV files are available locally before building:
-
-```text
-data/raw/ml-latest/ratings.csv
-data/raw/ml-latest/movies.csv
-```
-
 Build the image from the project root:
 
 ```bash
@@ -218,6 +211,10 @@ Run the app:
 ```bash
 docker run --env-file .env -p 8501:8501 movie-recommendation-pyspark
 ```
+
+Raw data is excluded from the Docker build context to keep the image small. The
+container downloads and extracts the CSV files automatically on its first
+startup, so it needs outbound access to GitHub Releases.
 
 Then open:
 
@@ -251,10 +248,12 @@ you want TMDB posters enabled.
 │   └── 02_test_recommender.ipynb
 ├── src/
 │   ├── __init__.py
+│   ├── download_data.py        # Automatic release dataset download
 │   ├── pipeline.py             # Reusable batch pipeline and CLI
 │   └── recommend.py            # Recommendation and poster helper functions
 ├── tests/
 │   ├── fixtures/ml-small/      # Tiny CI-only MovieLens sample
+│   ├── test_download_data.py
 │   └── test_pipeline.py
 ├── .github/workflows/ci.yml    # Automated repository validation
 ├── .env.example                # Environment variable template

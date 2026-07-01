@@ -4,11 +4,8 @@ __pycache__/
 .git/
 .env
 
-data/raw/*
-!data/raw/ml-latest/
-data/raw/ml-latest/*
-!data/raw/ml-latest/ratings.csv
-!data/raw/ml-latest/movies.csv
+data/raw/
 data/processed/
 models/
 notebooks/
+release-data/

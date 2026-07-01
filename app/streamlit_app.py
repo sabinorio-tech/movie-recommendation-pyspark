@@ -12,8 +12,8 @@ load_dotenv(ROOT_DIR / ".env")
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
+from src.download_data import DatasetDownloadError, ensure_movielens_data
 from src.recommend import (
-    DEFAULT_DATA_PATH,
     get_movie_poster,
     get_movie_titles,
     get_placeholder_poster_url,
@@ -146,29 +146,10 @@ if not is_tmdb_configured():
         "file or to Streamlit Cloud secrets to enable posters."
     )
 
-production_data_files = [
-    DEFAULT_DATA_PATH / "ratings.csv",
-    DEFAULT_DATA_PATH / "movies.csv",
-]
-demo_data_path = ROOT_DIR / "tests" / "fixtures" / "ml-small"
-demo_data_files = [
-    demo_data_path / "ratings.csv",
-    demo_data_path / "movies.csv",
-]
-
-if all(path.is_file() for path in production_data_files):
-    active_data_path = DEFAULT_DATA_PATH
-elif all(path.is_file() for path in demo_data_files):
-    active_data_path = demo_data_path
-    st.info(
-        "Demo mode: using the small MovieLens fixture because the full dataset "
-        "is not included in this deployment."
-    )
-else:
-    st.error(
-        "MovieLens data is not available in this deployment. Add ratings.csv "
-        "and movies.csv under data/raw/ml-latest."
-    )
+try:
+    active_data_path = ensure_movielens_data()
+except DatasetDownloadError as error:
+    st.error(str(error))
     st.stop()
 
 try:

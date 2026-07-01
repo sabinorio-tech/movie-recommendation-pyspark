@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      build_docker:
+        description: Build the Streamlit Docker image
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SPARK_LOCAL_IP: 127.0.0.1
+      SPARK_MASTER: local[2]
+      SPARK_DRIVER_MEMORY: 1g
+      SPARK_EXECUTOR_MEMORY: 1g
+      SPARK_SHUFFLE_PARTITIONS: 2
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Set up Java for PySpark
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install application dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Check Python syntax
+        run: python -m compileall -q app src dags tests
+
+      - name: Verify required project files
+        run: |
+          test -f app/streamlit_app.py
+          test -f src/recommend.py
+          test -f src/pipeline.py
+          test -f dags/movie_recommender_dag.py
+          test -f requirements-airflow.txt
+          test -f Dockerfile
+          test -f tests/fixtures/ml-small/ratings.csv
+          test -f tests/fixtures/ml-small/movies.csv
+
+      - name: Run lightweight unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Run Spark pipeline against tiny fixture
+        run: |
+          python -m src.pipeline run \
+            --data-path tests/fixtures/ml-small \
+            --output-path "${RUNNER_TEMP}/movie-recommender-output" \
+            --movie-title "Toy Story" \
+            --top-n 3 \
+            --processed-top-n 5
+          test -s "${RUNNER_TEMP}/movie-recommender-output/top_movies.csv"
+          test -s "${RUNNER_TEMP}/movie-recommender-output/sample_recommendations.csv"
+          test -s "${RUNNER_TEMP}/movie-recommender-output/pipeline_metadata.json"
+          python -c 'import json, os; p=os.path.join(os.environ["RUNNER_TEMP"], "movie-recommender-output", "pipeline_metadata.json"); assert json.load(open(p, encoding="utf-8"))["status"] == "success"'
+
+  docker-build:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_docker }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prepare tiny MovieLens data for image validation
+        run: |
+          mkdir -p data/raw/ml-latest
+          cp tests/fixtures/ml-small/ratings.csv data/raw/ml-latest/ratings.csv
+          cp tests/fixtures/ml-small/movies.csv data/raw/ml-latest/movies.csv
+
+      - name: Build Docker image
+        run: docker build -t movie-recommendation-pyspark:ci .

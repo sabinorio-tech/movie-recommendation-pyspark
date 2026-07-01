@@ -24,14 +24,20 @@ TRAILING_ARTICLE_PATTERN = re.compile(r"^(?P<title>.+), (?P<article>The|A|An)$")
 logger = logging.getLogger(__name__)
 
 
-def get_spark_session(app_name="MovieRecommendationSystem"):
+def get_spark_session(
+    app_name="MovieRecommendationSystem",
+    master="local[*]",
+    driver_memory="6g",
+    executor_memory="6g",
+    shuffle_partitions=8,
+):
     """Create or reuse a local Spark session for MovieLens processing."""
     return (
         SparkSession.builder.appName(app_name)
-        .master("local[*]")
-        .config("spark.driver.memory", "6g")
-        .config("spark.executor.memory", "6g")
-        .config("spark.sql.shuffle.partitions", "8")
+        .master(master)
+        .config("spark.driver.memory", driver_memory)
+        .config("spark.executor.memory", executor_memory)
+        .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .getOrCreate()
     )
 

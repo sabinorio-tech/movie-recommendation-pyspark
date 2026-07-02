@@ -9,6 +9,14 @@ import requests
 from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, count, desc, lower, regexp_replace
+from pyspark.sql.types import (
+    DoubleType,
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+)
 
 from src.download_data import DEFAULT_DATA_PATH
 
@@ -21,6 +29,21 @@ TMDB_SEARCH_URL = "https://api.themoviedb.org/3/search/movie"
 TMDB_POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500"
 YEAR_PATTERN = re.compile(r"\((\d{4})\)\s*$")
 TRAILING_ARTICLE_PATTERN = re.compile(r"^(?P<title>.+), (?P<article>The|A|An)$")
+RATINGS_SCHEMA = StructType(
+    [
+        StructField("userId", IntegerType(), nullable=True),
+        StructField("movieId", IntegerType(), nullable=True),
+        StructField("rating", DoubleType(), nullable=True),
+        StructField("timestamp", LongType(), nullable=True),
+    ]
+)
+MOVIES_SCHEMA = StructType(
+    [
+        StructField("movieId", IntegerType(), nullable=True),
+        StructField("title", StringType(), nullable=True),
+        StructField("genres", StringType(), nullable=True),
+    ]
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,20 +83,27 @@ def load_movie_lens_data(data_path=DEFAULT_DATA_PATH, spark=None):
     ratings = spark.read.csv(
         str(data_path / "ratings.csv"),
         header=True,
-        inferSchema=True,
+        schema=RATINGS_SCHEMA,
     )
     movies = spark.read.csv(
         str(data_path / "movies.csv"),
         header=True,
-        inferSchema=True,
+        schema=MOVIES_SCHEMA,
     )
 
     return ratings, movies
 
 
-def get_movie_titles(data_path=DEFAULT_DATA_PATH, spark=None):
+def get_movie_titles(data_path=DEFAULT_DATA_PATH, spark=None, movies=None):
     """Return all movie titles for the Streamlit dropdown."""
-    _, movies = load_movie_lens_data(data_path=data_path, spark=spark)
+    if movies is None:
+        spark = spark or get_spark_session()
+        data_path = Path(data_path)
+        movies = spark.read.csv(
+            str(data_path / "movies.csv"),
+            header=True,
+            schema=MOVIES_SCHEMA,
+        )
 
     return [
         row["title"]
@@ -278,12 +308,17 @@ def recommend_similar_movies(
     min_rating=4.5,
     data_path=DEFAULT_DATA_PATH,
     spark=None,
+    ratings=None,
+    movies=None,
 ):
     """Recommend movies liked by users who highly rated the requested movie."""
     if not movie_title or not movie_title.strip():
         raise ValueError("movie_title must not be empty.")
 
-    ratings, movies = load_movie_lens_data(data_path=data_path, spark=spark)
+    if (ratings is None) != (movies is None):
+        raise ValueError("ratings and movies must be provided together.")
+    if ratings is None:
+        ratings, movies = load_movie_lens_data(data_path=data_path, spark=spark)
     query = movie_title.strip().lower()
 
     movies_for_matching = movies.withColumn(
